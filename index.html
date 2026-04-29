@@ -3,116 +3,152 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تطبيق إدارة المبيعات</title>
+    <title>نظام التاجر المحترف</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; padding: 20px; }
-        .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        h2 { color: #1a73e8; text-align: center; }
-        input, button { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box; }
-        button { background-color: #28a745; color: white; border: none; font-weight: bold; cursor: pointer; }
-        button:hover { background-color: #218838; }
-        .compare-btn { background-color: #007bff; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
-        th { background-color: #f8f9fa; }
-        .unpaid { color: red; font-weight: bold; }
-        .paid { color: green; font-weight: bold; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f4f7f6; padding: 15px; margin: 0; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h2, h3 { color: #2c3e50; text-align: center; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        input, button { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; font-size: 16px; }
+        button { background-color: #3498db; color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:hover { background-color: #2980b9; }
+        .btn-compare { background-color: #8e44ad; }
+        .btn-clear { background-color: #e74c3c; margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: #fff; }
+        th, td { border: 1px solid #eee; padding: 12px; text-align: center; }
+        th { background-color: #34495e; color: white; }
+        .status-ok { background-color: #d4edda; color: #155724; font-weight: bold; }
+        .status-no { background-color: #f8d7da; color: #721c24; font-weight: bold; }
+        .extra-list { background: #fff3cd; padding: 15px; border-left: 5px solid #ffca28; margin-top: 20px; border-radius: 8px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>📱 نظام المبيعات والمقارنة</h2>
+    <h2>📱 نظام المبيعات والمطابقة الذكية</h2>
     
-    <div style="border-bottom: 2px solid #eee; margin-bottom: 20px; padding-bottom: 10px;">
-        <input type="text" id="custName" placeholder="اسم الزبون (كما يظهر في الحوالة)">
-        <input type="number" id="amount" placeholder="المبلغ">
-        <button onclick="saveToPhone()">💾 حفظ العملية (بدون نت)</button>
+    <div class="card">
+        <input type="text" id="custName" placeholder="اسم الزبون...">
+        <input type="number" id="amount" placeholder="المبلغ المطلوب...">
+        <button onclick="saveEntry()">💾 حفظ العملية</button>
     </div>
 
-    <div>
-        <label>رفع كشف البنك (Excel):</label>
+    <div class="card" style="margin-top: 20px;">
+        <h3>🔍 مطابقة كشف البنك</h3>
+        <p style="font-size: 14px; color: #666;">ارفع ملف الإكسل لمقارنة الأسماء:</p>
         <input type="file" id="excelFile" accept=".xlsx, .xls">
-        <button class="compare-btn" onclick="startComparison()">🔍 ابدأ المقارنة التلقائية</button>
+        <button class="btn-compare" onclick="startComparison()">بدء عملية الفحص</button>
     </div>
 
-    <table id="resultTable">
+    <div id="extraResults" class="extra-list" style="display:none;">
+        <strong>⚠️ أسماء موجودة في البنك وغير مسجلة عندك:</strong>
+        <ul id="extraNamesList"></ul>
+    </div>
+
+    <table>
         <thead>
             <tr>
                 <th>الاسم</th>
                 <th>المبلغ</th>
-                <th>حالة الدفع</th>
+                <th>حالة التحويل</th>
             </tr>
         </thead>
-        <tbody id="tableBody">
-            </tbody>
+        <tbody id="tableBody"></tbody>
     </table>
+
+    <button class="btn-clear" onclick="clearAll()">🗑️ مسح جميع البيانات وابدأ يوم جديد</button>
 </div>
 
 <script>
-    // تخزين البيانات في ذاكرة المتصفح المحلية
-    function saveToPhone() {
-        const name = document.getElementById('custName').value;
-        const amount = document.getElementById('amount').value;
+    // حفظ البيانات
+    function saveEntry() {
+        const name = document.getElementById('custName').value.trim();
+        const amount = document.getElementById('amount').value.trim();
 
-        if(!name || !amount) { alert("يرجى ملء الخانات"); return; }
+        if(!name || !amount) return alert("عبئ البيانات أولاً");
 
-        let sales = JSON.parse(localStorage.getItem('mySales') || "[]");
-        sales.push({ name: name.trim(), amount: amount, status: "لم يحول بعد" });
-        localStorage.setItem('mySales', JSON.stringify(sales));
+        let data = JSON.parse(localStorage.getItem('mySalesData') || "[]");
+        data.push({ name, amount, status: "لم يحول" });
+        localStorage.setItem('mySalesData', JSON.stringify(data));
         
-        alert("تم حفظ العملية بنجاح!");
         document.getElementById('custName').value = "";
         document.getElementById('amount').value = "";
-        loadTable();
+        renderTable();
     }
 
-    function loadTable() {
-        const sales = JSON.parse(localStorage.getItem('mySales') || "[]");
+    // عرض الجدول
+    function renderTable() {
+        const data = JSON.parse(localStorage.getItem('mySalesData') || "[]");
         const tbody = document.getElementById('tableBody');
         tbody.innerHTML = "";
-        sales.forEach((item) => {
-            let statusClass = item.status === "✅ تم الدفع" ? "paid" : "unpaid";
-            tbody.innerHTML += `<tr><td>${item.name}</td><td>${item.amount}</td><td class="${statusClass}">${item.status}</td></tr>`;
+        data.forEach(item => {
+            const cssClass = item.status === "تم التحويل ✅" ? "status-ok" : "status-no";
+            tbody.innerHTML += `<tr>
+                <td>${item.name}</td>
+                <td>${item.amount}</td>
+                <td class="${cssClass}">${item.status}</td>
+            </tr>`;
         });
     }
 
+    // عملية المقارنة
     function startComparison() {
         const fileInput = document.getElementById('excelFile');
-        if (!fileInput.files[0]) { alert("الرجاء اختيار ملف إكسل أولاً"); return; }
+        if (!fileInput.files[0]) return alert("اختر ملف الإكسل أولاً");
 
         const reader = new FileReader();
         reader.onload = function(e) {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, {type: 'array'});
+            const workbook = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            const excelData = XLSX.utils.sheet_to_json(sheet);
-
-            // تحويل أسماء الإكسل لقائمة نصوص للمقارنة
-            let bankNames = excelData.map(row => Object.values(row).join(" "));
-
-            let sales = JSON.parse(localStorage.getItem('mySales') || "[]");
+            const excelRows = XLSX.utils.sheet_to_json(sheet);
             
-            sales.forEach(sale => {
-                // البحث: هل اسم الزبون موجود داخل أي سطر في الإكسل؟
-                let found = bankNames.some(bankRow => bankRow.includes(sale.name));
-                if (found) {
-                    sale.status = "✅ تم الدفع";
+            // تحويل كل بيانات الإكسل لنصوص للبحث فيها
+            let bankDataStrings = excelRows.map(row => Object.values(row).join(" ").toLowerCase());
+            let mySales = JSON.parse(localStorage.getItem('mySalesData') || "[]");
+            let foundInBank = new Set();
+
+            // 1. تحديث حالة الأسماء المسجلة عندي
+            mySales.forEach(sale => {
+                let match = bankDataStrings.find(rowStr => rowStr.includes(sale.name.toLowerCase()));
+                if (match) {
+                    sale.status = "تم التحويل ✅";
+                    foundInBank.add(match); // نسجل أن هذا السطر من البنك "معروف"
                 } else {
-                    sale.status = "❌ لم يحول بعد";
+                    sale.status = "لم يحول ❌";
                 }
             });
 
-            localStorage.setItem('mySales', JSON.stringify(sales));
-            loadTable();
-            alert("اكتملت المقارنة!");
+            // 2. كشف الأسماء الزائدة (موجودة في البنك وغير مسجلة عندي)
+            const extraNamesList = document.getElementById('extraNamesList');
+            const extraDiv = document.getElementById('extraResults');
+            extraNamesList.innerHTML = "";
+            let hasExtras = false;
+
+            bankDataStrings.forEach(rowStr => {
+                if (!foundInBank.has(rowStr)) {
+                    hasExtras = true;
+                    let li = document.createElement('li');
+                    li.textContent = rowStr; 
+                    extraNamesList.appendChild(li);
+                }
+            });
+
+            extraDiv.style.display = hasExtras ? "block" : "none";
+            localStorage.setItem('mySalesData', JSON.stringify(mySales));
+            renderTable();
+            alert("تمت المقارنة بنجاح!");
         };
         reader.readAsArrayBuffer(fileInput.files[0]);
     }
 
-    // تشغيل الجدول عند فتح التطبيق
-    loadTable();
+    function clearAll() {
+        if(confirm("هل أنت متأكد من مسح جميع بيانات اليوم؟")) {
+            localStorage.removeItem('mySalesData');
+            location.reload();
+        }
+    }
+
+    renderTable();
 </script>
 
 </body>
